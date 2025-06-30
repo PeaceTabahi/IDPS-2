@@ -4,6 +4,7 @@ import time
 from collections import defaultdict, deque
 from scapy.all import sniff, IP, TCP, UDP, ICMP
 import threading
+import json
 
 class DetectionEngine:
     def __init__(self, prevention_system, alert_system):
@@ -70,6 +71,7 @@ class DetectionEngine:
         """Analyze each captured packet"""
         try:
             self.stats['packets_processed'] += 1
+            self.save_stats_to_file()
             
             if not packet.haslayer(IP):
                 return
@@ -140,17 +142,42 @@ class DetectionEngine:
     def handle_threat(self, src_ip, threat_type, severity):
         """Handle detected threat"""
         self.stats['threats_detected'] += 1
+        self.save_stats_to_file()
         
         # Log the threat
         message = f"THREAT DETECTED: {threat_type} from {src_ip} (Severity: {severity})"
         self.alert_system.log_warning(message)
+        self.save_alert_to_file(message)
         
         # Take prevention action based on severity
         if severity in ['HIGH', 'CRITICAL']:
             if self.prevention_system.block_ip(src_ip):
                 self.stats['ips_blocked'] += 1
-                self.alert_system.send_alert(f"BLOCKED IP: {src_ip} due to {threat_type}")
+                self.save_stats_to_file()
+                block_msg = f"BLOCKED IP: {src_ip} due to {threat_type}"
+                self.alert_system.send_alert(block_msg)
+                self.save_alert_to_file(block_msg)
                 
     def get_stats(self):
         """Get system statistics"""
         return self.stats.copy()
+
+    def save_stats_to_file(self):
+        with open('nidps_stats.json', 'w') as f:
+            json.dump(self.stats, f)
+
+    def save_alert_to_file(self, message):
+        try:
+            alerts = []
+            try:
+                with open('nidps_alerts.json', 'r') as f:
+                    alerts = json.load(f)
+            except Exception:
+                alerts = []
+            from datetime import datetime
+            alerts.insert(0, {'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'), 'message': message})
+            alerts = alerts[:50]
+            with open('nidps_alerts.json', 'w') as f:
+                json.dump(alerts, f)
+        except Exception as e:
+            self.alert_system.log_error(f'Failed to write alert to file: {e}')
