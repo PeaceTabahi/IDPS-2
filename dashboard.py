@@ -35,11 +35,28 @@ def dashboard():
 
 @app.route('/api/stats')
 def get_stats():
-    return jsonify(dashboard_data.stats)
+    stats_file = 'nidps_stats.json'
+    if os.path.exists(stats_file):
+        with open(stats_file, 'r') as f:
+            stats = json.load(f)
+        return jsonify(stats)
+    else:
+        return jsonify({
+            'packets_processed': 0,
+            'threats_detected': 0,
+            'ips_blocked': 0,
+            'system_uptime': '--'
+        })
 
 @app.route('/api/alerts')
 def get_alerts():
-    return jsonify(dashboard_data.recent_alerts)
+    alerts_file = 'nidps_alerts.json'
+    if os.path.exists(alerts_file):
+        with open(alerts_file, 'r') as f:
+            alerts = json.load(f)
+        return jsonify(alerts)
+    else:
+        return jsonify([])
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
